@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purechat</title>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --accent-color: #007aff;
+      --accent-glow: rgba(0, 122, 255, 0.35);
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+      --glass-bg: rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.15);
+      --glass-panel-bg: rgba(15, 23, 42, 0.65);
+      --text-main: #ffffff;
+      --text-sub: rgba(255, 255, 255, 0.6);
+      --chat-bubble-in: rgba(255, 255, 255, 0.12);
+      --chat-bubble-out: var(--accent-color);
+      --input-bg: rgba(255, 255, 255, 0.07);
+    }
+
+    [data-theme="light"] {
+      --bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #f3e8ff 50%, #fce7f3 100%);
+      --glass-bg: rgba(255, 255, 255, 0.45);
+      --glass-border: rgba(255, 255, 255, 0.6);
+      --glass-panel-bg: rgba(255, 255, 255, 0.55);
+      --text-main: #0f172a;
+      --text-sub: rgba(15, 23, 42, 0.6);
+      --chat-bubble-in: rgba(255, 255, 255, 0.7);
+      --input-bg: rgba(255, 255, 255, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      color: var(--text-main);
+      transition: background 0.4s ease;
+    }
+
+    /* Фоновые светящиеся сферы для усиления эффекта стекла */
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+      animation: float 12s infinite alternate ease-in-out;
+    }
+    .blob-1 { width: 350px; height: 350px; background: var(--accent-color); top: 10%; left: 15%; opacity: 0.5; }
+    .blob-2 { width: 400px; height: 400px; background: #a855f7; bottom: 10%; right: 15%; opacity: 0.4; }
+
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(30px, -40px) scale(1.1); }
+    }
+
+    /* Основной контейнер приложения */
+    .app-container {
+      position: relative;
+      z-index: 1;
+      width: 95vw;
+      max-width: 1200px;
+      height: 90vh;
+      background: var(--glass-panel-bg);
+      backdrop-filter: blur(30px) saturate(190%);
+      -webkit-backdrop-filter: blur(30px) saturate(190%);
+      border: 1px solid var(--glass-border);
+      border-radius: 28px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Окно авторизации */
+    .auth-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      background: var(--glass-panel-bg);
+      backdrop-filter: blur(40px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: opacity 0.4s ease, visibility 0.4s;
+    }
+    .auth-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .auth-card {
+      width: 380px;
+      padding: 35px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    .auth-card h2 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      font-weight: 700;
+      background: linear-gradient(45deg, var(--text-main), var(--accent-color));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .auth-card p { font-size: 14px; color: var(--text-sub); margin-bottom: 25px; }
+
+    .auth-tabs {
+      display: flex;
+      background: var(--input-bg);
+      border-radius: 12px;
+      padding: 3px;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-sub);
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .tab-btn.active {
+      background: var(--glass-bg);
+      color: var(--text-main);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .input-box {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--input-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-size: 15px;
+      outline: none;
+      transition: border 0.3s;
+    }
+    .input-box:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* Выбор страны для телефона */
+    .phone-input-wrap {
+      display: flex;
+      gap: 8px;
+    }
+    .country-select {
+      width: 110px;
+      background: var(--input-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: var(--text-main);
+      padding: 0 8px;
+      outline: none;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .country-select option {
+      background: #1e293b;
+      color: #fff;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px var(--accent-glow);
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+
+    /* Боковая панель (Чаты) */
+    .sidebar {
+      width: 340px;
+      border-right: 1px solid var(--glass-border);
+      display: flex;
+      flex-direction: column;
+      background: rgba(0,0,0,0.05);
+    }
+    .user-header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--accent-color);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+    .user-info h4 { font-size: 15px; font-weight: 600; }
+    .user-info p { font-size: 12px; color: var(--text-sub); }
+
+    .header-actions { display: flex; gap: 12px; }
+    .icon-btn {
+      background: var(--input-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.2); }
+
+    .search-bar {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .search-input {
+      width: 100%;
+      padding: 10px 14px 10px 36px;
+      background: var(--input-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-size: 14px;
+      outline: none;
+    }
+    .search-wrap { position: relative; }
+    .search-wrap i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-sub);
+      font-size: 14px;
+    }
+
+    .chats-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background 0.2s;
+    }
+    .chat-item:hover, .chat-item.active {
+      background: var(--glass-bg);
+    }
+    .chat-details { flex: 1; min-width: 0; }
+    .chat-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .chat-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-time { font-size: 11px; color: var(--text-sub); }
+    .chat-preview { font-size: 13px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Главное окно сообщений */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(0,0,0,0.02);
+    }
+    .chat-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .messages-container {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .msg {
+      max-width: 60%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 14.5px;
+      line-height: 1.4;
+      position: relative;
+      word-wrap: break-word;
+    }
+    .msg-in {
+      align-self: flex-start;
+      background: var(--chat-bubble-in);
+      border-bottom-left-radius: 4px;
+      border: 1px solid var(--glass-border);
+    }
+    .msg-out {
+      align-self: flex-end;
+      background: var(--chat-bubble-out);
+      color: white;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+    .msg-time {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    .chat-input-area {
+      padding: 16px 24px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-input {
+      flex: 1;
+      padding: 12px 18px;
+      background: var(--input-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      color: var(--text-main);
+      font-size: 15px;
+      outline: none;
+    }
+
+    /* Модальное окно настроек */
+    .modal {
+      position: absolute;
+      inset: 0;
+      z-index: 90;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(15px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    .modal.active { opacity: 1; visibility: visible; }
+    .modal-card {
+      width: 420px;
+      background: var(--glass-panel-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 28px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .color-picker {
+      display: flex;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .color-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s;
+    }
+    .color-dot:hover { transform: scale(1.15); }
+    .color-dot.active { border-color: #fff; }
+
+    /* Полоса прокрутки */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+  </style>
+</head>
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <!-- Главный макет Purechat -->
+  <div class="app-container">
+
+    <!-- Экран авторизации / регистрации -->
+    <div class="auth-overlay" id="authOverlay">
+      <div class="auth-card">
+        <h2>Purechat</h2>
+        <p>Добро пожаловать в мессенджер нового поколения</p>
+
+        <div class="auth-tabs">
+          <button class="tab-btn active" onclick="switchAuthTab('phone')">Телефон</button>
+          <button class="tab-btn" onclick="switchAuthTab('email')">Email</button>
+        </div>
+
+        <form id="authForm" onsubmit="handleAuth(event)">
+          <div class="form-group">
+            <label>Ваш Username</label>
+            <input type="text" id="authUsername" class="input-box" placeholder="@durov" required>
+          </div>
+
+          <!-- Вариант Телефон -->
+          <div id="phoneGroup" class="form-group">
+            <label>Номер телефона</label>
+            <div class="phone-input-wrap">
+              <select class="country-select" id="countryCode" onchange="updateCountryFlag()">
+                <option value="+7">🇷🇺 +7</option>
+                <option value="+7 KZ">🇰🇿 +7</option>
+                <option value="+380">🇺🇦 +380</option>
+                <option value="+375">🇧🇾 +375</option>
+                <option value="+1">🇺🇸 +1</option>
+              </select>
+              <input type="tel" id="authPhone" class="input-box" placeholder="(999) 000-00-00">
+            </div>
+          </div>
+
+          <!-- Вариант Email -->
+          <div id="emailGroup" class="form-group" style="display: none;">
+            <label>Электронная почта</label>
+            <input type="email" id="authEmail" class="input-box" placeholder="pavel@durov.me">
+          </div>
+
+          <div class="form-group">
+            <label>Пароль</label>
+            <input type="password" id="authPassword" class="input-box" placeholder="••••••••" required>
+          </div>
+
+          <button type="submit" class="btn-primary">Войти в Purechat</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Боковое меню -->
+    <div class="sidebar">
+      <div class="user-header">
+        <div class="user-profile" onclick="openSettings()">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" class="avatar" id="myAvatar" alt="Avatar">
+          <div class="user-info">
+            <h4 id="myFullName">Павел Дуров</h4>
+            <p id="myUsername">@durov</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
+          <button class="icon-btn" onclick="openSettings()" title="Настройки"><i class="fa-solid fa-gear"></i></button>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" class="search-input" id="searchInput" placeholder="Поиск по @username..." oninput="searchUsers(this.value)">
+        </div>
+      </div>
+
+      <div class="chats-list" id="chatsList">
+        <!-- Список чатов заполнится через JS -->
+      </div>
+    </div>
+
+    <!-- Область диалога -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <div class="user-profile">
+          <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" class="avatar" id="activeChatAvatar" alt="Avatar">
+          <div class="user-info">
+            <h4 id="activeChatName">Илон Маск</h4>
+            <p id="activeChatStatus">онлайн</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn"><i class="fa-solid fa-phone"></i></button>
+          <button class="icon-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messagesContainer">
+        <!-- Сообщения -->
+      </div>
+
+      <div class="chat-input-area">
+        <button class="icon-btn"><i class="fa-solid fa-paperclip"></i></button>
+        <input type="text" class="chat-input" id="messageInput" placeholder="Напишите сообщение..." onkeypress="handleKeyPress(event)">
+        <button class="icon-btn" style="background: var(--accent-color); color: white;" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
+
+    <!-- Модальное окно настроек -->
+    <div class="modal" id="settingsModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Настройки Purechat</h3>
+          <button class="icon-btn" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="form-group">
+          <label>Ссылка на аватарку</label>
+          <input type="text" id="avatarUrlInput" class="input-box" value="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100">
+        </div>
+
+        <div class="form-group">
+          <label>Цвет подсвечивания стекла</label>
+          <div class="color-picker">
+            <div class="color-dot active" style="background: #007aff;" onclick="setAccent('#007aff', this)"></div>
+            <div class="color-dot" style="background: #af52de;" onclick="setAccent('#af52de', this)"></div>
+            <div class="color-dot" style="background: #34c759;" onclick="setAccent('#34c759', this)"></div>
+            <div class="color-dot" style="background: #ff9500;" onclick="setAccent('#ff9500', this)"></div>
+            <div class="color-dot" style="background: #ff2d55;" onclick="setAccent('#ff2d55', this)"></div>
+          </div>
+        </div>
+
+        <button class="btn-primary" style="margin-top: 15px;" onclick="saveSettings()">Сохранить изменения</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- SUPABASE ИНИЦИАЛИЗАЦИЯ (Вставьте свои ключи) ---
+    const SUPABASE_URL = 'https://lhmpyloxmvphykjoftxn.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_KcO7qy9PvEM0xr7Aehv-Tw_hasPbMHq';
+    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+    // Состояние приложения
+    let currentUser = { username: '@durov', name: 'Павел Дуров' };
+    let activeChat = { username: '@elonmusk', name: 'Илон Маск' };
+    let currentAuthMode = 'phone';
+
+    const mockChats = [
+      { username: '@elonmusk', name: 'Илон Маск', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100', lastMsg: 'Когда запустим Starship?', time: '14:32' },
+      { username: '@sundar', name: 'Сундар Пичаи', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100', lastMsg: 'Gemini обновлен!', time: '12:05' },
+      { username: '@altman', name: 'Сэм Олтмен', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', lastMsg: 'Привет от OpenAI', time: 'Вчера' }
+    ];
+
+    const mockMessages = {
+      '@elonmusk': [
+        { text: 'Привет Павел! Как успехи с Purechat?', type: 'in', time: '14:30' },
+        { text: 'Привет! Стекло выглядит потрясающе 🔥', type: 'out', time: '14:31' },
+        { text: 'Когда запустим Starship?', type: 'in', time: '14:32' }
+      ]
+    };
+
+    // Рендер списка чатов
+    function renderChats(filter = '') {
+      const chatsList = document.getElementById('chatsList');
+      chatsList.innerHTML = '';
+      
+      const filtered = mockChats.filter(c => c.username.toLowerCase().includes(filter.toLowerCase()) || c.name.toLowerCase().includes(filter.toLowerCase()));
+
+      filtered.forEach(chat => {
+        const item = document.createElement('div');
+        item.className = `chat-item ${chat.username === activeChat.username ? 'active' : ''}`;
+        item.onclick = () => selectChat(chat);
+        item.innerHTML = `
+          <img src="${chat.avatar}" class="avatar" alt="">
+          <div class="chat-details">
+            <div class="chat-top">
+              <span class="chat-name">${chat.name}</span>
+              <span class="chat-time">${chat.time}</span>
+            </div>
+            <div class="chat-preview">${chat.lastMsg}</div>
+          </div>
+        `;
+        chatsList.appendChild(item);
+      });
+    }
+
+    // Выбор чата
+    function selectChat(chat) {
+      activeChat = chat;
+      document.getElementById('activeChatName').innerText = chat.name;
+     
