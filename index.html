@@ -1,626 +1,96 @@
-<!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<!doctype html>
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Purechat</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#eaf0fa">
+  <title>LiquidChat</title>
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    :root {
-      --accent-color: #007aff;
-      --accent-glow: rgba(0, 122, 255, 0.35);
-      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
-      --glass-bg: rgba(255, 255, 255, 0.08);
-      --glass-border: rgba(255, 255, 255, 0.15);
-      --glass-panel-bg: rgba(15, 23, 42, 0.65);
-      --text-main: #ffffff;
-      --text-sub: rgba(255, 255, 255, 0.6);
-      --chat-bubble-in: rgba(255, 255, 255, 0.12);
-      --chat-bubble-out: var(--accent-color);
-      --input-bg: rgba(255, 255, 255, 0.07);
-    }
-
-    [data-theme="light"] {
-      --bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #f3e8ff 50%, #fce7f3 100%);
-      --glass-bg: rgba(255, 255, 255, 0.45);
-      --glass-border: rgba(255, 255, 255, 0.6);
-      --glass-panel-bg: rgba(255, 255, 255, 0.55);
-      --text-main: #0f172a;
-      --text-sub: rgba(15, 23, 42, 0.6);
-      --chat-bubble-in: rgba(255, 255, 255, 0.7);
-      --input-bg: rgba(255, 255, 255, 0.5);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-    }
-
-    body {
-      background: var(--bg-gradient);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      color: var(--text-main);
-      transition: background 0.4s ease;
-    }
-
-    .blob {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-      z-index: 0;
-      animation: float 12s infinite alternate ease-in-out;
-    }
-    .blob-1 { width: 350px; height: 350px; background: var(--accent-color); top: 10%; left: 15%; opacity: 0.5; }
-    .blob-2 { width: 400px; height: 400px; background: #a855f7; bottom: 10%; right: 15%; opacity: 0.4; }
-
-    @keyframes float {
-      0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(30px, -40px) scale(1.1); }
-    }
-
-    .app-container {
-      position: relative;
-      z-index: 1;
-      width: 95vw;
-      max-width: 1200px;
-      height: 90vh;
-      background: var(--glass-panel-bg);
-      backdrop-filter: blur(30px) saturate(190%);
-      -webkit-backdrop-filter: blur(30px) saturate(190%);
-      border: 1px solid var(--glass-border);
-      border-radius: 28px;
-      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-      display: flex;
-      overflow: hidden;
-    }
-
-    .auth-overlay {
-      position: absolute;
-      inset: 0;
-      z-index: 100;
-      background: var(--glass-panel-bg);
-      backdrop-filter: blur(40px);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      transition: opacity 0.4s ease, visibility 0.4s;
-    }
-    .auth-overlay.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-    .auth-card {
-      width: 400px;
-      padding: 35px;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-      text-align: center;
-    }
-    .auth-card h2 {
-      font-size: 28px;
-      margin-bottom: 8px;
-      font-weight: 700;
-      background: linear-gradient(45deg, var(--text-main), var(--accent-color));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .auth-card p { font-size: 14px; color: var(--text-sub); margin-bottom: 25px; }
-
-    .auth-tabs {
-      display: flex;
-      background: var(--input-bg);
-      border-radius: 12px;
-      padding: 3px;
-      margin-bottom: 20px;
-    }
-    .tab-btn {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: transparent;
-      color: var(--text-sub);
-      font-weight: 600;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    .tab-btn.active {
-      background: var(--glass-bg);
-      color: var(--text-main);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-      text-align: left;
-    }
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      color: var(--text-sub);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .input-box {
-      width: 100%;
-      padding: 12px 16px;
-      background: var(--input-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      color: var(--text-main);
-      font-size: 15px;
-      outline: none;
-      transition: border 0.3s;
-    }
-    .input-box:focus {
-      border-color: var(--accent-color);
-      box-shadow: 0 0 10px var(--accent-glow);
-    }
-
-    .phone-input-wrap {
-      display: flex;
-      gap: 8px;
-    }
-    .country-select {
-      width: 110px;
-      background: var(--input-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      color: var(--text-main);
-      padding: 0 8px;
-      outline: none;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    .country-select option { background: #1e293b; color: #fff; }
-
-    .btn-primary {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent-color);
-      color: white;
-      border: none;
-      border-radius: 14px;
-      font-weight: 600;
-      font-size: 16px;
-      cursor: pointer;
-      box-shadow: 0 8px 20px var(--accent-glow);
-      transition: transform 0.2s, opacity 0.2s;
-    }
-    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-
-    .toggle-auth-mode {
-      margin-top: 15px;
-      font-size: 13px;
-      color: var(--text-sub);
-      cursor: pointer;
-    }
-    .toggle-auth-mode span { color: var(--accent-color); font-weight: 600; }
-
-    .sidebar {
-      width: 340px;
-      border-right: 1px solid var(--glass-border);
-      display: flex;
-      flex-direction: column;
-      background: rgba(0,0,0,0.05);
-    }
-    .user-header {
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-    }
-    .avatar {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid var(--accent-color);
-      box-shadow: 0 0 8px var(--accent-glow);
-    }
-    .user-info h4 { font-size: 15px; font-weight: 600; }
-    .user-info p { font-size: 12px; color: var(--text-sub); }
-
-    .header-actions { display: flex; gap: 8px; }
-    .icon-btn {
-      background: var(--input-bg);
-      border: 1px solid var(--glass-border);
-      color: var(--text-main);
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    .icon-btn:hover { background: rgba(255,255,255,0.2); }
-
-    .search-bar {
-      padding: 12px 20px;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    .search-input {
-      width: 100%;
-      padding: 10px 14px 10px 36px;
-      background: var(--input-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      color: var(--text-main);
-      font-size: 14px;
-      outline: none;
-    }
-    .search-wrap { position: relative; }
-    .search-wrap i {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-sub);
-      font-size: 14px;
-    }
-
-    .chats-list {
-      flex: 1;
-      overflow-y: auto;
-    }
-    .chat-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 20px;
-      cursor: pointer;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      transition: background 0.2s;
-    }
-    .chat-item:hover, .chat-item.active { background: var(--glass-bg); }
-    .chat-details { flex: 1; min-width: 0; }
-    .chat-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .chat-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .chat-preview { font-size: 13px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    .chat-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: rgba(0,0,0,0.02);
-    }
-    .chat-header {
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--glass-border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .messages-container {
-      flex: 1;
-      padding: 24px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .msg {
-      max-width: 60%;
-      padding: 12px 16px;
-      border-radius: 18px;
-      font-size: 14.5px;
-      line-height: 1.4;
-      position: relative;
-      word-wrap: break-word;
-    }
-    .msg-in {
-      align-self: flex-start;
-      background: var(--chat-bubble-in);
-      border-bottom-left-radius: 4px;
-      border: 1px solid var(--glass-border);
-    }
-    .msg-out {
-      align-self: flex-end;
-      background: var(--chat-bubble-out);
-      color: white;
-      border-bottom-right-radius: 4px;
-      box-shadow: 0 4px 12px var(--accent-glow);
-    }
-    .msg-time {
-      font-size: 10px;
-      opacity: 0.7;
-      margin-top: 4px;
-      text-align: right;
-    }
-
-    .chat-input-area {
-      padding: 16px 24px;
-      border-top: 1px solid var(--glass-border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .chat-input {
-      flex: 1;
-      padding: 12px 18px;
-      background: var(--input-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      color: var(--text-main);
-      font-size: 15px;
-      outline: none;
-    }
-
-    .modal {
-      position: absolute;
-      inset: 0;
-      z-index: 90;
-      background: rgba(0,0,0,0.4);
-      backdrop-filter: blur(15px);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s;
-    }
-    .modal.active { opacity: 1; visibility: visible; }
-    .modal-card {
-      width: 420px;
-      background: var(--glass-panel-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
-      padding: 28px;
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .color-picker {
-      display: flex;
-      gap: 12px;
-      margin-top: 10px;
-    }
-    .color-dot {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: transform 0.2s;
-    }
-    .color-dot:hover { transform: scale(1.15); }
-    .color-dot.active { border-color: #fff; }
-
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-  </style>
 </head>
 <body>
-
-  <div class="blob blob-1"></div>
-  <div class="blob blob-2"></div>
-
-  <div class="app-container">
-    <div class="auth-overlay" id="authOverlay">
-      <div class="auth-card">
-        <h2>Purechat</h2>
-        <p id="authSubtitle">Вход в мессенджер</p>
-
-        <div class="auth-tabs" id="authTabsContainer">
-          <button class="tab-btn active" onclick="switchAuthTab('email')">Email</button>
-          <button class="tab-btn" onclick="switchAuthTab('phone')">Телефон</button>
-        </div>
-
-        <form id="authForm" onsubmit="handleAuthSubmit(event)">
-          <div class="form-group" id="usernameFieldWrap" style="display:none;">
-            <label>Username</label>
-            <input type="text" id="authUsername" class="input-box" placeholder="myname">
-          </div>
-
-          <div class="form-group" id="emailFieldWrap">
-            <label>Электронная почта</label>
-            <input type="email" id="authEmail" class="input-box" placeholder="mail@example.com">
-          </div>
-
-          <div class="form-group" id="phoneFieldWrap" style="display:none;">
-            <label>Номер телефона</label>
-            <div class="phone-input-wrap">
-              <select class="country-select" id="countryCode">
-                <option value="+7">🇷🇺 +7</option>
-                <option value="+7 KZ">🇰🇿 +7</option>
-                <option value="+380">🇺🇦 +380</option>
-                <option value="+375">🇧🇾 +375</option>
-                <option value="+1">🇺🇸 +1</option>
-              </select>
-              <input type="tel" id="authPhone" class="input-box" placeholder="9990000000">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Пароль</label>
-            <input type="password" id="authPassword" class="input-box" placeholder="••••••••" required>
-          </div>
-
-          <button type="submit" class="btn-primary" id="authSubmitBtn">Войти</button>
-        </form>
-
-        <div class="toggle-auth-mode" onclick="toggleAuthModeType()">
-          Нет аккаунта? <span id="toggleAuthText">Зарегистрироваться</span>
-        </div>
+  <div class="ambient"></div>
+  <main class="shell">
+    <header class="topbar glass">
+      <div class="brand"><span class="brand-icon">◈</span><div><b>LiquidChat</b><small>Stay connected</small></div></div>
+      <div class="top-actions">
+        <button id="themeBtn" class="icon-btn" title="Сменить тему">☼</button>
+        <button id="profileBtn" class="avatar mini" title="Профиль">LC</button>
       </div>
-    </div>
+    </header>
 
-    <div class="sidebar">
-      <div class="user-header">
-        <div class="user-profile" onclick="openSettings()">
-          <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" class="avatar" id="myAvatar" alt="Avatar">
-          <div class="user-info">
-            <h4 id="myFullName">Загрузка...</h4>
-            <p id="myUsername">@...</p>
-          </div>
-        </div>
-        <div class="header-actions">
-          <button class="icon-btn" onclick="toggleTheme()" title="Тема"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
-          <button class="icon-btn" onclick="openSettings()" title="Настройки"><i class="fa-solid fa-gear"></i></button>
-        </div>
+    <section id="authView" class="auth-view glass">
+      <div class="hero-mark">◈</div>
+      <h1>Общение без границ</h1>
+      <p class="muted">Войди или создай аккаунт LiquidChat</p>
+      <div class="tabs">
+        <button class="tab active" data-auth="login">Войти</button>
+        <button class="tab" data-auth="register">Регистрация</button>
       </div>
+      <form id="authForm">
+        <label id="nameLabel" class="hidden">Имя<input id="displayName" autocomplete="name" placeholder="Как тебя зовут?"></label>
+        <label>Email или номер телефона<input id="identifier" autocomplete="username" placeholder="name@example.com или +77001234567" required></label>
+        <label id="usernameLabel" class="hidden">Username<input id="newUsername" placeholder="например, liquid_user"></label>
+        <button class="primary" type="submit" id="authSubmit">Продолжить</button>
+      </form>
+      <p class="hint">Мы отправим код подтверждения. Для SMS включи Phone Auth в настройках Supabase.</p>
+      <div id="authMessage" class="notice"></div>
+    </section>
 
-      <div class="search-bar">
-        <div class="search-wrap">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" class="search-input" id="searchInput" placeholder="Поиск по @username..." oninput="searchUsers(this.value)">
+    <section id="appView" class="app-view hidden">
+      <aside class="sidebar glass">
+        <div class="sidebar-head"><div><h2>Сообщения</h2><p class="muted" id="myHandle">@username</p></div><button id="newChatBtn" class="round-btn">＋</button></div>
+        <input id="searchInput" class="search" placeholder="Поиск людей и чатов…">
+        <div class="section-label">ЧАТЫ</div>
+        <div id="chatList" class="chat-list"><div class="empty">Пока нет чатов</div></div>
+        <div class="sidebar-bottom">
+          <button id="createGroupBtn" class="soft-btn">＋ Создать группу</button>
+          <button id="createChannelBtn" class="soft-btn">▤ Создать канал</button>
         </div>
-      </div>
+      </aside>
 
-      <div class="chats-list" id="chatsList"></div>
-    </div>
-
-    <div class="chat-area">
-      <div class="chat-header">
-        <div class="user-profile">
-          <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" class="avatar" id="activeChatAvatar" alt="Avatar">
-          <div class="user-info">
-            <h4 id="activeChatName">Выберите чат</h4>
-            <p id="activeChatStatus">офлайн</p>
-          </div>
+      <section class="conversation glass">
+        <div id="welcome" class="welcome"><div class="welcome-orb">◈</div><h2>Твой LiquidChat</h2><p class="muted">Выбери чат или найди человека, чтобы начать общение.</p></div>
+        <div id="chatPanel" class="hidden chat-panel">
+          <header class="chat-header"><div class="avatar" id="peerAvatar">LC</div><div class="peer-info"><b id="peerName">Чат</b><small id="peerStatus" class="muted"></small></div><span id="peerVerified" class="verified hidden">✓</span></header>
+          <div id="messages" class="messages"></div>
+          <form id="messageForm" class="composer"><input id="messageInput" placeholder="Сообщение…" autocomplete="off"><button class="send-btn" type="submit">➤</button></form>
         </div>
-        <div class="header-actions">
-          <button class="icon-btn" onclick="logout()"><i class="fa-solid fa-right-from-bracket" title="Выйти"></i></button>
-        </div>
-      </div>
+      </section>
+    </section>
+  </main>
 
-      <div class="messages-container" id="messagesContainer">
-        <div style="margin: auto; color: var(--text-sub); text-align: center;">Выберите чат слева или найдите пользователя по @username</div>
-      </div>
+  <dialog id="profileDialog" class="modal glass">
+    <form method="dialog"><button class="close">×</button></form>
+    <h2>Профиль</h2>
+    <div class="profile-photo"><img id="avatarPreview" alt="Аватар"><span id="avatarFallback">LC</span></div>
+    <label>Аватар из галереи<input id="avatarFile" type="file" accept="image/*"></label>
+    <label>Имя<input id="editName" maxlength="40"></label>
+    <label>Username<input id="editUsername" maxlength="24"></label>
+    <label>О себе<input id="editBio" maxlength="160"></label>
+    <button id="saveProfile" class="primary" type="button">Сохранить</button>
+    <button id="cameraBtn" class="soft-btn" type="button">Сделать фото</button>
+    <input id="cameraFile" type="file" accept="image/*" capture="user" class="hidden">
+    <button id="logoutBtn" class="danger" type="button">Выйти</button>
+    <div id="profileMessage" class="notice"></div>
+  </dialog>
 
-      <div class="chat-input-area">
-        <input type="text" class="chat-input" id="messageInput" placeholder="Напишите сообщение..." onkeypress="handleKeyPress(event)" disabled>
-        <button class="icon-btn" id="sendBtn" style="background: var(--accent-color); color: white;" onclick="sendMessage()" disabled><i class="fa-solid fa-paper-plane"></i></button>
-      </div>
-    </div>
+  <dialog id="createDialog" class="modal glass">
+    <form method="dialog"><button class="close">×</button></form>
+    <h2 id="createTitle">Создать</h2>
+    <label>Название<input id="createName" maxlength="60"></label>
+    <label>Username (необязательно)<input id="createUsername" maxlength="24"></label>
+    <button id="createSubmit" class="primary" type="button">Создать</button>
+    <div id="createMessage" class="notice"></div>
+  </dialog>
 
-    <div class="modal" id="settingsModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Настройки</h3>
-          <button class="icon-btn" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        
-        <div class="form-group">
-          <label>Ссылка на аватарку</label>
-          <input type="text" id="avatarUrlInput" class="input-box" placeholder="https://...">
-        </div>
-
-        <div class="form-group">
-          <label>Цвет стекла (Акцент)</label>
-          <div class="color-picker">
-            <div class="color-dot active" style="background: #007aff;" onclick="setAccent('#007aff', this)"></div>
-            <div class="color-dot" style="background: #af52de;" onclick="setAccent('#af52de', this)"></div>
-            <div class="color-dot" style="background: #34c759;" onclick="setAccent('#34c759', this)"></div>
-            <div class="color-dot" style="background: #ff9500;" onclick="setAccent('#ff9500', this)"></div>
-            <div class="color-dot" style="background: #ff2d55;" onclick="setAccent('#ff2d55', this)"></div>
-          </div>
-        </div>
-
-        <button class="btn-primary" style="margin-top: 15px;" onclick="saveSettings()">Сохранить</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const SUPABASE_URL = 'https://lhmpyloxmvphykjoftxn.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_KcO7qy9PvEM0xr7Aehv-Tw_hasPbMHq';
-    
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    let currentUser = null;
-    let activeChatUser = null;
-    let isRegistering = false;
-    let currentAuthTab = 'email';
-    let allProfiles = [];
-
-    async function initApp() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        currentUser = session.user;
-        await fetchMyProfile();
-        document.getElementById('authOverlay').classList.add('hidden');
-        loadUsersList();
-        subscribeToRealtimeMessages();
-      }
-    }
-
-    async function fetchMyProfile() {
-      const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-      if (data) {
-        currentUser.profile = data;
-        document.getElementById('myFullName').innerText = data.full_name || 'Пользователь';
-        document.getElementById('myUsername').innerText = '@' + (data.username || 'user');
-        if (data.avatar_url) document.getElementById('myAvatar').src = data.avatar_url;
-      }
-    }
-
-    function switchAuthTab(tab) {
-      currentAuthTab = tab;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      event.target.classList.add('active');
-      if(tab === 'email') {
-        document.getElementById('emailFieldWrap').style.display = 'block';
-        document.getElementById('phoneFieldWrap').style.display = 'none';
-      } else {
-        document.getElementById('emailFieldWrap').style.display = 'none';
-        document.getElementById('phoneFieldWrap').style.display = 'block';
-      }
-    }
-
-    function toggleAuthModeType() {
-      isRegistering = !isRegistering;
-      const sub = document.getElementById('authSubtitle');
-      const btn = document.getElementById('authSubmitBtn');
-      const toggleText = document.getElementById('toggleAuthText');
-      const userWrap = document.getElementById('usernameFieldWrap');
-
-      if (isRegistering) {
-        sub.innerText = 'Создание нового аккаунта';
-        btn.innerText = 'Зарегистрироваться';
-        toggleText.innerText = 'Уже есть аккаунт? Войти';
-        userWrap.style.display = 'block';
-      } else {
-        sub.innerText = 'Вход в мессенджер';
-        btn.innerText = 'Войти';
-        toggleText.innerText = 'Зарегистрироваться';
-        userWrap.style.display = 'none';
-      }
-    }
-
-    async function handleAuthSubmit(e) {
-      e.preventDefault();
-      const password = document.getElementById('authPassword').value;
-
-      if (isRegistering) {
-        const username = document.getElementById('authUsername').value.replace('@','');
-        let identifier = '';
-        
-        if (currentAuthTab === 'email') {
-          identifier = document.getElementById('authEmail').value;
-        } else {
-          const code = document.getElementById('countryCode').value;
- 
+  <dialog id="searchDialog" class="modal glass">
+    <form method="dialog"><button class="close">×</button></form>
+    <h2>Найти пользователя</h2>
+    <input id="peopleSearch" class="search" placeholder="Имя или @username">
+    <div id="peopleResults" class="results"></div>
+  </dialog>
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
